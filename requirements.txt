@@ -1,0 +1,7 @@
+Flask==3.0.3
+pandas==2.2.2
+openpyxl==3.1.5
+python-dotenv==1.0.1
+
+# Optional - only needed if you wire up the real AI provider in app/ai_summary.py
+# anthropic>=0.116.0

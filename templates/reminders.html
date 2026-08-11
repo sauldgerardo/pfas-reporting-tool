@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Reminders &middot; {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Automated Reminder Engine</h1>
+
+{% if dry_run %}
+<div class="alert alert-warning">
+  <strong>Dry run mode is on.</strong> Reminders are generated, previewed and
+  logged to the database, but no email leaves this machine. Set
+  <code>EMAIL_DRY_RUN=0</code> in <code>.env</code> (and fill in the SMTP
+  settings) to send for real.
+</div>
+{% endif %}
+
+<!-- ---------------- Send controls ---------------- -->
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Sites needing a reminder ({{ pending_sites|length }})</span>
+    <span class="small text-muted">Pending &amp; Overdue only &mdash; Complete sites are skipped</span>
+  </div>
+
+  <form method="post" action="{{ url_for('main.run_reminders') }}">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 2.5rem;">
+              <input type="checkbox" class="form-check-input" id="checkAll">
+            </th>
+            <th>Site</th><th>Lead</th><th>Email</th>
+            <th>Status</th><th class="text-center">Reminders sent</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for site in pending_sites %}
+          <tr>
+            <td><input type="checkbox" class="form-check-input site-check" name="site_ids" value="{{ site.id }}"></td>
+            <td class="fw-semibold">{{ site.site_name }}</td>
+            <td>{{ site.site_lead or '—' }}</td>
+            <td>{{ site.site_email }}</td>
+            <td><span class="badge text-bg-{{ status_colors[site.submission_status] }}">{{ site.submission_status }}</span></td>
+            <td class="text-center">{{ site.reminder_count }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-4">
+            Every site is Complete. Nothing to chase.
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if pending_sites %}
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="dry_run" value="1" id="forceDry"
+               {{ 'checked disabled' if dry_run }}>
+        <label class="form-check-label small" for="forceDry">
+          Preview only (don't actually send)
+        </label>
+      </div>
+      <button class="btn btn-primary">
+        Send reminders to selected <span class="text-white-50">(none selected = all)</span>
+      </button>
+    </div>
+    {% endif %}
+  </form>
+</div>
+
+<!-- ---------------- Last run detail ---------------- -->
+{% if last_run and last_run.details %}
+<div class="card mb-4">
+  <div class="card-header">
+    Last run &mdash; {{ 'DRY RUN' if last_run.dry_run else 'LIVE' }}:
+    {{ last_run.sent }} processed, {{ last_run.failed }} failed
+  </div>
+  <div class="accordion accordion-flush" id="lastRunAccordion">
+    {% for d in last_run.details %}
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#detail{{ loop.index }}">
+          <span class="badge text-bg-{{ 'success' if d.status == 'sent' else ('secondary' if d.status == 'dry_run' else 'danger') }} me-2">
+            {{ d.status }}
+          </span>
+          {{ d.site_name }} &rarr; {{ d.recipient }}
+          {% if d.error %}<span class="text-danger ms-2 small">{{ d.error }}</span>{% endif %}
+        </button>
+      </h2>
+      <div id="detail{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#lastRunAccordion">
+        <div class="accordion-body">
+          <div class="small text-muted mb-1">Subject: <strong>{{ d.subject }}</strong></div>
+          <div class="email-preview">{{ d.body }}</div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ---------------- History ---------------- -->
+<div class="card">
+  <div class="card-header">Reminder history (most recent 100)</div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+      <thead class="table-light">
+        <tr><th>Sent at</th><th>Site</th><th>Recipient</th><th>Subject</th><th>Status</th><th>Error</th></tr>
+      </thead>
+      <tbody>
+        {% for r in history %}
+        <tr>
+          <td class="text-nowrap small">{{ r.sent_at }}</td>
+          <td>{{ r.site_name or '(deleted)' }}</td>
+          <td class="small">{{ r.recipient }}</td>
+          <td class="small">{{ r.subject }}</td>
+          <td>
+            <span class="badge text-bg-{{ 'success' if r.status == 'sent' else ('secondary' if r.status == 'dry_run' else 'danger') }}">
+              {{ r.status }}
+            </span>
+          </td>
+          <td class="small text-danger">{{ r.error_message or '' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No reminders logged yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Header checkbox toggles every row.
+  const checkAll = document.getElementById('checkAll');
+  if (checkAll) {
+    checkAll.addEventListener('change', (e) => {
+      document.querySelectorAll('.site-check').forEach(cb => cb.checked = e.target.checked);
+    });
+  }
+</script>
+{% endblock %}

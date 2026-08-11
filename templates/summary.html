@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}AI Summary &middot; {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-1">AI Submission Summary</h1>
+<p class="text-muted">
+  Paste a site's PFAS submission text below. Current backend:
+  <code>{{ provider }}</code>
+  {% if provider == 'placeholder' %}
+    <span class="badge text-bg-secondary">rule-based stub &mdash; no API calls</span>
+  {% endif %}
+</p>
+
+<div class="row g-4">
+  <!-- ---------------- Input ---------------- -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Submission text</div>
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label small">Attach to site (optional)</label>
+            <select name="site_id" class="form-select">
+              <option value="">— not linked to a site —</option>
+              {% for s in sites %}
+                <option value="{{ s.id }}" {{ 'selected' if selected_site_id == s.id }}>{{ s.site_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">Submission *</label>
+            <textarea name="submission_text" rows="10" class="form-control"
+                      placeholder="PFAS present in manufacturing process. Testing completed March 2026. Mitigation procedures active."
+                      required>{{ submitted_text }}</textarea>
+          </div>
+          <button class="btn btn-primary">Generate summary</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------------- Output ---------------- -->
+  <div class="col-lg-6">
+    {% if result %}
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Generated summary</span>
+        <span class="badge text-bg-{{ 'danger' if result.follow_up_required == 'Yes' else 'success' }}">
+          Follow-up required: {{ result.follow_up_required }}
+        </span>
+      </div>
+      <div class="card-body">
+        <h6 class="text-uppercase text-muted small">Executive Summary</h6>
+        <p>{{ result.executive_summary }}</p>
+
+        <h6 class="text-uppercase text-muted small">Key Findings</h6>
+        {% if result.key_findings %}
+        <ul>
+          {% for finding in result.key_findings %}<li>{{ finding }}</li>{% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted fst-italic">No discrete findings extracted.</p>
+        {% endif %}
+
+        <h6 class="text-uppercase text-muted small">Follow-Up</h6>
+        <p class="mb-1">
+          <strong class="text-{{ 'danger' if result.follow_up_required == 'Yes' else 'success' }}">
+            {{ result.follow_up_required }}
+          </strong>
+          &mdash; {{ result.follow_up_reason }}
+        </p>
+
+        <hr>
+        <p class="small text-muted mb-0">Produced by: <code>{{ result.provider }}</code></p>
+      </div>
+    </div>
+    {% else %}
+    <div class="card h-100">
+      <div class="card-header">Generated summary</div>
+      <div class="card-body d-flex align-items-center justify-content-center text-muted text-center">
+        <div>
+          <p class="mb-1">Nothing analysed yet.</p>
+          <p class="small mb-0">Paste a submission on the left and click <em>Generate summary</em>.</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ---------------- Wiring note ---------------- -->
+<div class="alert alert-info mt-4 small mb-4">
+  <strong>Plugging in a real model.</strong> <code>generate_summary(text)</code> in
+  <code>app/ai_summary.py</code> dispatches on the <code>AI_PROVIDER</code> env var.
+  A full API implementation is written out there and commented — install
+  the SDK, set <code>ANTHROPIC_API_KEY</code> and <code>AI_MODEL</code>, uncomment the
+  block, and set <code>AI_PROVIDER=api</code>. Adding any other provider means writing one
+  function with the same return shape and registering it in <code>_PROVIDERS</code>.
+</div>
+
+<!-- ---------------- Past analyses ---------------- -->
+<div class="card">
+  <div class="card-header">Recent analyses</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead class="table-light">
+        <tr><th>When</th><th>Site</th><th>Executive summary</th><th>Follow-up</th><th>Backend</th></tr>
+      </thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td class="text-nowrap small">{{ h.submitted_at }}</td>
+          <td>{{ h.site_name or '—' }}</td>
+          <td class="small">{{ h.executive_summary }}</td>
+          <td>
+            <span class="badge text-bg-{{ 'danger' if h.follow_up_required == 'Yes' else 'success' }}">
+              {{ h.follow_up_required }}
+            </span>
+          </td>
+          <td class="small text-muted">{{ h.provider }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No submissions analysed yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

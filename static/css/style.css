@@ -1,0 +1,42 @@
+/* Small layer on top of Bootstrap - only what Bootstrap doesn't give us. */
+
+.metric-card {
+  border-left: 5px solid transparent;
+  transition: transform .12s ease;
+}
+.metric-card:hover { transform: translateY(-2px); }
+
+.metric-card .metric-value {
+  font-size: 2.25rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.metric-card .metric-label {
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-size: .75rem;
+}
+
+/* Status colour coding: green = Complete, yellow = Pending, red = Overdue */
+.metric-card.status-total    { border-left-color: #0d6efd; }
+.metric-card.status-complete { border-left-color: #198754; }
+.metric-card.status-pending  { border-left-color: #ffc107; }
+.metric-card.status-overdue  { border-left-color: #dc3545; }
+
+/* Chart canvases need a bounded parent or Chart.js grows without limit. */
+.chart-box { position: relative; height: 280px; }
+
+/* Reminder preview / raw submission text */
+.email-preview {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .8rem;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: .375rem;
+  padding: .75rem;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.table td, .table th { vertical-align: middle; }

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Sites &middot; {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Sites <span class="text-muted fs-6">({{ sites|length }})</span></h1>
+  <button class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#addSiteForm">
+    + Add site
+  </button>
+</div>
+
+<!-- ---------------- Add site (collapsed by default) ---------------- -->
+<div class="collapse mb-4" id="addSiteForm">
+  <div class="card card-body">
+    <form method="post" action="{{ url_for('main.create_site') }}" class="row g-2">
+      <div class="col-md-3">
+        <label class="form-label small">Site Name *</label>
+        <input name="site_name" class="form-control" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">Site Lead</label>
+        <input name="site_lead" class="form-control">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small">Email *</label>
+        <input name="site_email" type="email" class="form-control" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">Region</label>
+        <input name="region" class="form-control">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">Status</label>
+        <select name="submission_status" class="form-select">
+          {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-12 text-end">
+        <button class="btn btn-success btn-sm">Save site</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ---------------- Filters ---------------- -->
+<form method="get" class="row g-2 align-items-end mb-3">
+  <div class="col-auto">
+    <label class="form-label small mb-1">Status</label>
+    <select name="status" class="form-select form-select-sm">
+      <option value="">All</option>
+      {% for s in statuses %}
+        <option value="{{ s }}" {{ 'selected' if status_filter == s }}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <label class="form-label small mb-1">Region</label>
+    <select name="region" class="form-select form-select-sm">
+      <option value="">All</option>
+      {% for r in regions %}
+        <option value="{{ r }}" {{ 'selected' if region_filter == r }}>{{ r }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-outline-secondary btn-sm">Filter</button>
+    <a href="{{ url_for('main.sites') }}" class="btn btn-link btn-sm">Reset</a>
+  </div>
+</form>
+
+<!-- ---------------- Site table ---------------- -->
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>ID</th><th>Site</th><th>Lead</th><th>Email</th><th>Region</th>
+          <th>Status</th><th>Last Submission</th><th class="text-center">Reminders</th>
+          <th style="min-width: 230px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for site in sites %}
+        <tr>
+          <td class="text-muted">{{ site.id }}</td>
+          <td class="fw-semibold">{{ site.site_name }}</td>
+          <td>{{ site.site_lead or '—' }}</td>
+          <td><a href="mailto:{{ site.site_email }}">{{ site.site_email }}</a></td>
+          <td>{{ site.region or '—' }}</td>
+          <td>
+            <span class="badge text-bg-{{ status_colors[site.submission_status] }}">
+              {{ site.submission_status }}
+            </span>
+          </td>
+          <td>{{ site.last_submission_date or '—' }}</td>
+          <td class="text-center">{{ site.reminder_count }}</td>
+          <td>
+            <!-- Status change: one small form per row -->
+            <form method="post" action="{{ url_for('main.update_status', site_id=site.id) }}"
+                  class="d-inline-flex gap-1 align-items-center">
+              <select name="submission_status" class="form-select form-select-sm" style="width: 110px;">
+                {% for s in statuses %}
+                  <option value="{{ s }}" {{ 'selected' if s == site.submission_status }}>{{ s }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-sm btn-outline-primary">Set</button>
+            </form>
+            <form method="post" action="{{ url_for('main.delete_site', site_id=site.id) }}"
+                  class="d-inline"
+                  onsubmit="return confirm('Delete {{ site.site_name }}? This also removes its reminder history.');">
+              <button class="btn btn-sm btn-outline-danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">
+          No sites match. <a href="{{ url_for('main.import_excel') }}">Import from Excel</a>
+          or add one above.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

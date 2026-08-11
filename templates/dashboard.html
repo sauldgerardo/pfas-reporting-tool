@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Dashboard &middot; {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-0">Annual PFAS Reporting &mdash; FY{{ year }}</h1>
+    <p class="text-muted mb-0">Submission deadline: <strong>{{ deadline }}</strong></p>
+  </div>
+  <a href="{{ url_for('main.reminders') }}" class="btn btn-primary">Run reminders</a>
+</div>
+
+<!-- ---------------- Metric tiles ---------------- -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card metric-card status-total h-100">
+      <div class="card-body">
+        <div class="metric-label text-primary">Total Sites</div>
+        <div class="metric-value">{{ metrics.total }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card metric-card status-complete h-100">
+      <div class="card-body">
+        <div class="metric-label text-success">Complete</div>
+        <div class="metric-value">{{ metrics.complete }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card metric-card status-pending h-100">
+      <div class="card-body">
+        <div class="metric-label text-warning">Pending</div>
+        <div class="metric-value">{{ metrics.pending }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card metric-card status-overdue h-100">
+      <div class="card-body">
+        <div class="metric-label text-danger">Overdue</div>
+        <div class="metric-value">{{ metrics.overdue }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------------- Completion bar ---------------- -->
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between mb-2">
+      <strong>Completion</strong>
+      <span class="text-muted">{{ metrics.complete }} of {{ metrics.total }} sites &mdash; {{ metrics.completion_pct }}%</span>
+    </div>
+    <div class="progress" style="height: 1.5rem;" role="progressbar"
+         aria-valuenow="{{ metrics.completion_pct }}" aria-valuemin="0" aria-valuemax="100">
+      <div class="progress-bar bg-success" style="width: {{ metrics.completion_pct }}%">
+        {{ metrics.completion_pct }}%
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------------- Charts ---------------- -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">Submission Status Breakdown</div>
+      <div class="card-body">
+        <div class="chart-box"><canvas id="statusChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">Sites by Region</div>
+      <div class="card-body">
+        <div class="chart-box"><canvas id="regionChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------------- Region table ---------------- -->
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">Regional Detail</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr>
+            <th>Region</th><th class="text-end">Complete</th>
+            <th class="text-end">Pending</th><th class="text-end">Overdue</th>
+            <th class="text-end">Total</th>
+          </tr></thead>
+          <tbody>
+            {% for r in regions %}
+            <tr>
+              <td>{{ r.region }}</td>
+              <td class="text-end text-success">{{ r.complete }}</td>
+              <td class="text-end text-warning">{{ r.pending }}</td>
+              <td class="text-end text-danger">{{ r.overdue }}</td>
+              <td class="text-end fw-semibold">{{ r.total }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-3">
+              No sites yet &mdash; <a href="{{ url_for('main.import_excel') }}">import a workbook</a>.
+            </td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">Recent Reminders</div>
+      <ul class="list-group list-group-flush">
+        {% for r in recent_reminders %}
+        <li class="list-group-item d-flex justify-content-between align-items-start">
+          <div>
+            <div class="fw-semibold">{{ r.site_name or 'Deleted site' }}</div>
+            <div class="small text-muted">{{ r.sent_at }} &middot; {{ r.recipient }}</div>
+          </div>
+          <span class="badge text-bg-{{ 'success' if r.status == 'sent' else ('secondary' if r.status == 'dry_run' else 'danger') }}">
+            {{ r.status }}
+          </span>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted text-center py-3">No reminders sent yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Data is rendered server-side (see routes.dashboard) and handed to Chart.js
+  // as JSON, so no client-side aggregation is needed.
+  const chartData = {{ chart_data | tojson }};
+
+  const COLORS = {
+    complete: '#198754',  // green
+    pending:  '#ffc107',  // yellow
+    overdue:  '#dc3545'   // red
+  };
+
+  // --- Doughnut: overall status split ---
+  new Chart(document.getElementById('statusChart'), {
+    type: 'doughnut',
+    data: {
+      labels: chartData.status_labels,
+      datasets: [{
+        data: chartData.status_values,
+        backgroundColor: [COLORS.complete, COLORS.pending, COLORS.overdue],
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+
+  // --- Stacked bar: status per region ---
+  new Chart(document.getElementById('regionChart'), {
+    type: 'bar',
+    data: {
+      labels: chartData.region_labels,
+      datasets: [
+        { label: 'Complete', data: chartData.region_complete, backgroundColor: COLORS.complete },
+        { label: 'Pending',  data: chartData.region_pending,  backgroundColor: COLORS.pending  },
+        { label: 'Overdue',  data: chartData.region_overdue,  backgroundColor: COLORS.overdue  }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: {
+        x: { stacked: true },
+        // Integer ticks only - half a site makes no sense.
+        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+      }
+    }
+  });
+</script>
+{% endblock %}

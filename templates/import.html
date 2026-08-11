@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Excel Import &middot; {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Import Sites from Excel</h1>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Upload workbook</div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label class="form-label">Excel file (.xlsx)</label>
+            <input type="file" name="file" accept=".xlsx,.xlsm" class="form-control" required>
+            <div class="form-text">Max 16 MB. The first sheet is read.</div>
+          </div>
+          <button class="btn btn-primary">Import</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Expected format</div>
+      <div class="card-body">
+        <p class="small text-muted mb-2">
+          Headers are matched case- and space-insensitively. A row whose
+          <code>SiteName</code> already exists <strong>updates</strong> that
+          site instead of creating a duplicate.
+        </p>
+        <table class="table table-sm table-bordered mb-2">
+          <thead class="table-light">
+            <tr><th>SiteName</th><th>SiteLead</th><th>Email</th><th>Region</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Kalamazoo</td><td>Dana Whitfield</td><td>kalamazoo@example.com</td><td>North America</td></tr>
+            <tr><td>Puurs</td><td>Lieve Maes</td><td>puurs@example.com</td><td>Europe</td></tr>
+            <tr><td>Dublin</td><td>Aoife Byrne</td><td>dublin@example.com</td><td>Europe</td></tr>
+          </tbody>
+        </table>
+        <p class="small mb-1"><strong>Required:</strong> SiteName, Email</p>
+        <p class="small mb-1"><strong>Optional:</strong> SiteLead, Region, Status, LastSubmissionDate</p>
+        <p class="small text-muted mb-0">
+          Generate a sample file: <code>python scripts/make_sample_excel.py</code>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if report %}
+<div class="card mt-4">
+  <div class="card-header">Import result</div>
+  <div class="card-body">
+    <div class="row text-center mb-3">
+      <div class="col"><div class="h4 text-success mb-0">{{ report.created }}</div><div class="small text-muted">Created</div></div>
+      <div class="col"><div class="h4 text-primary mb-0">{{ report.updated }}</div><div class="small text-muted">Updated</div></div>
+      <div class="col"><div class="h4 text-warning mb-0">{{ report.skipped }}</div><div class="small text-muted">Skipped</div></div>
+      <div class="col"><div class="h4 text-danger mb-0">{{ report.errors|length }}</div><div class="small text-muted">Issues</div></div>
+    </div>
+
+    {% if report.columns_found %}
+      <p class="small text-muted">
+        Columns recognised: {% for c in report.columns_found %}<code>{{ c }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+      </p>
+    {% endif %}
+
+    {% if report.errors %}
+      <div class="alert alert-warning mb-0">
+        <strong>Issues:</strong>
+        <ul class="mb-0 small">
+          {% for e in report.errors %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    {% if report.created or report.updated %}
+      <a href="{{ url_for('main.sites') }}" class="btn btn-outline-primary btn-sm mt-3">View sites</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
